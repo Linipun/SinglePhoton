@@ -397,7 +397,7 @@ def find_FS_state(n_r, l_r, j_r, energy_space, dl, pathname, verbose=True):
 
 if __name__ == "__main__":
     # Capture command-line arguments
-    arg = sys.argv[1:]
+    arg = eval('['+sys.argv[1]+']')
 
     # Rydberg state
     n_r = int(arg[0])
