@@ -551,19 +551,24 @@ if __name__ == "__main__":
 
     color = ['Blues', 'Oranges', 'Greens', 'Reds', 'Purples']
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(8, 5))
     label = []
     norm = c.Normalize(vmin=0, vmax=1, clip=False)
     for j in range(len(sf_look_states[:])):
         for state in range(total_state):
             axis = ax.scatter(E_ac_is[:], energy_result[:, state] / 1e6, c=prob_result[:, j, state],
                               alpha=prob_result[:, j, state], cmap=color[j])  # color[j])
-        fig.colorbar(cm.ScalarMappable(norm=norm, cmap=color[j]), ax=ax)
-        label.append('$mj=' + '{}/2'.format(-3 + 2 * j))
+        fig.colorbar(cm.ScalarMappable(norm=norm, cmap=color[j]), ax=ax, fraction=0.04, pad=0.02)
+
+        label.append('$mj=' + '{}/2'.format(-3 + 2 * i))
+    # ax.legend(label)
     ax.set_ylim([-1e3, 1e3])
+
+    # ax.set_xlim([0,100])
     ax.set_ylabel('$\Delta U$ [MHz]', fontsize=15)
     ax.set_xlabel('$E_{ac}$ [V/m]', fontsize=15)
-
+    fig.tight_layout()
+    
     name = 'results/shiftout'
     fig.savefig(name+'.png')
     fig.savefig(name+'.pdf')
