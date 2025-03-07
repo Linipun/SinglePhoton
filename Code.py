@@ -390,7 +390,7 @@ def find_FS_state(n_r, l_r, j_r, energy_space, dl, pathname, verbose=True):
             # print(energy )
             lvlplot.ax.text(l - 0.12, energy + 1, '$' + SinglePhotonSim.print_atomic_state(state)[:3] + '$')
     lvlplot.fig.savefig(os.path.join(pathname,
-        'lvlplot{}-{:d}-{:d}.pdf'.format(SinglePhotonSim.print_atomic_state([n_r, l_r, j_r]), energy_space, dl)))
+        'lvlplot{}-{:d}-{:d}.pdf'.format(SinglePhotonSim.print_atomic_state([n_r, l_r, j_r]), int(energy_space), dl)))
 
     return atomic_states
 
@@ -398,6 +398,7 @@ def find_FS_state(n_r, l_r, j_r, energy_space, dl, pathname, verbose=True):
 if __name__ == "__main__":
     # Capture command-line arguments
     arg = eval('['+sys.argv[1]+']')
+    os.makedirs('results', exist_ok=True)
 
     # Rydberg state
     n_r = int(arg[0])
@@ -500,7 +501,7 @@ if __name__ == "__main__":
             'v_ac_point': v_ac_point
         }
     }
-    os.makedirs('results', exist_ok=True)
+    
     # Dump settings to a JSON file
     with open('results/settings.json', 'w') as json_file:
         json.dump(setting_dict, json_file, indent=4)
