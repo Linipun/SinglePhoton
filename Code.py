@@ -568,7 +568,7 @@ if __name__ == "__main__":
     ax.set_ylabel('$\Delta U$ [MHz]', fontsize=15)
     ax.set_xlabel('$E_{ac}$ [V/m]', fontsize=15)
     fig.tight_layout()
-    
+
     name = 'results/shiftout'
     fig.savefig(name+'.png')
     fig.savefig(name+'.pdf')
