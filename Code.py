@@ -35,24 +35,20 @@ orbital = {0: 's',
 # Cesium Atom object in Arc Akali
 cs = Cesium()
 
-class SinglePhotonSim:
-    def __init__(self, atom, ms, atom_FS_states):
+class SinglePhoton:
+    def __init__(self, atom, atom_FS_states,expand_zeeman=True):
         self.atom = atom
         self.atom_FS_states = atom_FS_states
-        self.ms = ms
-
         # add Zeeman states to the atomic FS structure #####
-        self.atom_states = []
-        for a_n, a_l, a_j in self.atom_FS_states:
-            for a_mj in np.arange(-a_j, a_j + 1, 1):
-                self.atom_states.append([a_n, a_l, a_j, a_mj])
-
+        if expand_zeeman:
+            self.atom_states = []
+            for a_n, a_l, a_j in self.atom_FS_states:
+                for a_mj in np.arange(-a_j, a_j + 1, 1):
+                    self.atom_states.append([a_n, a_l, a_j, a_mj])
+        else:
+            self.atom_states = atom_FS_states
         # count the number of states
         self.comp_atomic_states_num = len(self.atom_states)
-
-        # total dressed state. This will be the dimension of the SF Hamiltonian
-        self.ms_num = len(self.ms)
-        self.total_state = self.ms_num * self.comp_atomic_states_num
 
     def generate_H0(self, Bz):
         n_r, l_r, j_r, mj_r = self.atom_states[0]
@@ -67,6 +63,9 @@ class SinglePhotonSim:
         H0 = np.diag(state_frequencies)
         print('H0 shape:', H0.shape)
         return H0
+
+    def generate_H_t(self, qs, w_ac, t, E_ac, Bz):
+        return -self.generate_H_t(qs, w_ac, t) * E_ac + self.generate_H0(Bz)
 
     def generate_Edipole_matrix(self, qs):
         """
@@ -99,6 +98,97 @@ class SinglePhotonSim:
         print('electric dipole matrix size:', d.shape)
         return d
 
+    @staticmethod
+    def print_FS_state(label):
+        return '{}{}_{}, mf={}'.format(label[0], orbital[label[1]], label[2], label[3])
+
+    @staticmethod
+    def print_atomic_state(label):
+        return '{}{}_{}'.format(label[0], orbital[label[1]], label[2])
+
+    def find_idx(self, state):
+        # idx = []
+        for i, s in enumerate(self.atom_states):
+            if s == state:
+                return i
+                # idx.append(i)
+
+
+class RydbergSinglePhoton(SinglePhoton):
+    def __init__(self, atom, atom_FS_states, ground_state, delay, expand_zeeman=True):
+        super().__init__(atom, atom_FS_states, expand_zeeman=expand_zeeman)
+        self.ground_state = ground_state
+        self.delay = delay
+        self.comp_atomic_states_num += len(ground_state)
+
+    def generate_H0(self, Bz):
+        n_r, l_r, j_r, mj_r = self.atom_states[0]
+        Zeeman_shift_ryd = self.atom.getZeemanEnergyShift(l=l_r, j=j_r, mj=mj_r, magneticFieldBz=Bz / 10000,
+                                                          s=0.5) / (
+                                   hbar * 2 * np.pi)
+        state_frequencies = []
+        for (n, l, j, mj) in self.atom_states:
+            fine_frequency = self.atom.getTransitionFrequency(n1=n_r, l1=l_r, j1=j_r, n2=n, l2=l, j2=j, s=0.5)
+            Zeeman_shift = self.atom.getZeemanEnergyShift(l=l, j=j, mj=mj, magneticFieldBz=Bz / 10000, s=0.5) / \
+                           (hbar * 2 * np.pi)
+            state_frequencies.append(fine_frequency + Zeeman_shift - Zeeman_shift_ryd)
+        for state in self.ground_state:
+            ground_state = state[0]
+            n, l, j, mj = state[1]
+            rabi = state[2] * 2 * np.pi
+            fine_frequency = self.atom.getTransitionFrequency(n1=n_r, l1=l_r, j1=j_r, n2=n, l2=l, j2=j, s=0.5)
+            Zeeman_shift = self.atom.getZeemanEnergyShift(l=l, j=j, mj=mj, magneticFieldBz=Bz / 10000, s=0.5) / \
+                           (hbar * 2 * np.pi)
+            state_frequencies.append(fine_frequency + Zeeman_shift - Zeeman_shift_ryd)
+        H0 = np.diag(state_frequencies)
+        print('H0 shape:', H0.shape)
+        return H0
+
+    def generate_Edipole_matrix(self, qs):
+        """
+        Generate electric dipole matrix element from list of atomic state
+
+        """
+        d = np.zeros((self.comp_atomic_states_num, self.comp_atomic_states_num), dtype=np.complex64)
+        for i, (a_n, a_l, a_j, a_mj) in enumerate(self.atom_states):
+            for j, (b_n, b_l, b_j, b_mj) in enumerate(self.atom_states):
+                q = b_mj - a_mj
+                # Filter state that doesn't meet the Dipole selection rules i.e. Delta mj >1, delta l != 1, or Delta j>1
+                if abs(q) > 1 or abs(a_l - b_l) != 1 or abs(a_j - b_j) > 1:
+                    d[i, j] = 0
+                elif i < j:
+                    # <n_a, l_a, j_a, mj_a| er | n_b, l_b, j_b mj_b> E_q
+                    d[i, j] = self.atom.getDipoleMatrixElement(n1=a_n, l1=a_l, j1=a_j, mj1=a_mj, n2=b_n, l2=b_l,
+                                                               j2=b_j,
+                                                               mj2=b_mj, q=q) * qs[
+                                  q] * bohr_radius * e / hbar / 2 / np.pi
+
+                else:
+                    d[i, j] = 0
+
+        d += np.conjugate(d.T)
+        d *= -1
+        print('electric dipole matrix size:', d.shape)
+
+        H_ground = np.zeros((self.comp_atomic_states_num, self.comp_atomic_states_num), dtype=np.complex64)
+        for i, state in enumerate(self.ground_state):
+            ground_state = state[1]
+            rabi = state[2] * 2 * np.pi
+            for j, s in enumerate(self.atom_states):
+                if s == ground_state:
+                    # print(i + len(self.atom_states), j)
+                    H_ground[i + len(self.atom_states), j] = rabi
+        H_ground += np.conjugate(H_ground.T)
+        return d, H_ground
+
+class SinglePhotonSim(SinglePhoton):
+    def __init__(self, atom, ms, atom_FS_states):
+        super().__init__(atom, atom_FS_states)
+        self.ms = ms
+        # total dressed state. This will be the dimension of the SF Hamiltonian
+        self.ms_num = len(self.ms)
+        self.total_state = self.ms_num * self.comp_atomic_states_num
+
     def generate_shirley_floquet_hamiltonian(self, H0, H_dc, H_ac, w_ac):
         """
          Generate Shirley-Floquet Hamiltonian
@@ -125,14 +215,6 @@ class SinglePhotonSim:
                 col_start, col_end = n_idx * self.comp_atomic_states_num, (n_idx + 1) * self.comp_atomic_states_num
                 H_f[row_start:row_end, col_start:col_end] = block
         return H_f
-
-    @staticmethod
-    def print_FS_state(label):
-        return '{}{}_{}, mf={}'.format(label[0], orbital[label[1]], label[2], label[3])
-
-    @staticmethod
-    def print_atomic_state(label):
-        return '{}{}_{}'.format(label[0], orbital[label[1]], label[2])
 
     def find_energy_bands(self, eig_val, eig_vec, target_state=0, target_photon_count=0,
                           target_num_bands=4, resolve_error=False):
@@ -572,3 +654,12 @@ if __name__ == "__main__":
     name = 'results/shiftout'
     fig.savefig(name+'.png')
     fig.savefig(name+'.pdf')
+
+    result_dict = {'V_ac': E_ac_is,
+                   'energy_result': energy_result,
+                   'prob_result': prob_result,
+                   'look_state':sf_look_states,
+                   }
+
+    with open('results/sf_result.json', 'w') as json_file:
+        json.dump(result_dict, json_file, indent=4)
