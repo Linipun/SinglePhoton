@@ -663,4 +663,3 @@ if __name__ == "__main__":
 
     with open('results/sf_result.json', 'w') as json_file:
         json.dump(result_dict, json_file, indent=4)
-    

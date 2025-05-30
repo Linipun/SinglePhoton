@@ -85,11 +85,6 @@ if __name__ == "__main__":
     v_ac_max = float(arg[21])
     v_ac_point = int(arg[22])
 
-    ground_state = [
-        [[6, 0, 1/2, -1/2], [n_r, l_r, j_r, 1/2], rabi_rydberg],
-        [[6, 0, 1/2, 1/2], [n_r, l_r, j_r, 3/2], rabi_rydberg],
-         ]
-
     # Create settings dictionary
     setting_dict = {
         'n_r': n_r,
@@ -130,30 +125,30 @@ if __name__ == "__main__":
             'v_ac_max': v_ac_max,
             'v_ac_point': v_ac_point
         },
-        'ground_state': ground_state
+        'result': {}
     }
-
-    # # Dump settings to a JSON file
-    # with open('results/settings.json', 'w') as json_file:
-    #     json.dump(setting_dict, json_file, indent=4)
-
-    sim = RydbergSinglePhoton(atom=cs, atom_FS_states=atomic_states, ground_state=ground_state, delay=1e-5,
-                              expand_zeeman=True)
-    comp_atomic_states = sim.atom_states
-    # sim.atom_states = [comp_atomic_states[1], comp_atomic_states[4]]
-    total_state = sim.comp_atomic_states_num
-
-    setting_dict['result'] = {}
     # w_ac
     print('w_ac1:', int(w_ac / 1e6))
-    result_list = []
-    #### Generate H0
-    H0 = sim.generate_H0(Bz)
-    print('H0:', np.around(np.diag(H0) / 1e6, 2).astype(int))
+
+
     E_ac_list = np.linspace(v_ac_min, v_ac_max, v_ac_point)
     setting_dict['E_ac'] = E_ac_list
     rabi_rydberg_list = np.lispace(0.5e6, 15e6, 30)
     for rabi_rydberg in rabi_rydberg_list:
+        ground_state = [
+            [[6, 0, 1 / 2, -1 / 2], [n_r, l_r, j_r, 1 / 2], rabi_rydberg],
+            [[6, 0, 1 / 2, 1 / 2], [n_r, l_r, j_r, 3 / 2], rabi_rydberg],
+        ]
+
+        sim = RydbergSinglePhoton(atom=cs, atom_FS_states=atomic_states, ground_state=ground_state, delay=1e-5,
+                                  expand_zeeman=True)
+        comp_atomic_states = sim.atom_states
+        # sim.atom_states = [comp_atomic_states[1], comp_atomic_states[4]]
+        total_state = sim.comp_atomic_states_num
+        #### Generate H0
+        H0 = sim.generate_H0(Bz)
+        print('H0:', np.around(np.diag(H0) / 1e6, 2).astype(int))
+        result_list = []
         for E_ac in E_ac_list:
             print('=================== E_ac ==================')
             # Drive Hamiltonian
