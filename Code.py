@@ -658,8 +658,9 @@ if __name__ == "__main__":
     result_dict = {'V_ac': E_ac_is,
                    'energy_result': energy_result,
                    'prob_result': prob_result,
-                   'look_state':sf_look_states,
+                   'look_state': sf_look_states,
                    }
 
     with open('results/sf_result.json', 'w') as json_file:
         json.dump(result_dict, json_file, indent=4)
+    

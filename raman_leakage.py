@@ -85,8 +85,6 @@ if __name__ == "__main__":
     v_ac_max = float(arg[21])
     v_ac_point = int(arg[22])
 
-    rabi_rydberg = float(arg[23])
-
     ground_state = [
         [[6, 0, 1/2, -1/2], [n_r, l_r, j_r, 1/2], rabi_rydberg],
         [[6, 0, 1/2, 1/2], [n_r, l_r, j_r, 3/2], rabi_rydberg],
@@ -145,7 +143,7 @@ if __name__ == "__main__":
     # sim.atom_states = [comp_atomic_states[1], comp_atomic_states[4]]
     total_state = sim.comp_atomic_states_num
 
-
+    setting_dict['result'] = {}
     # w_ac
     print('w_ac1:', int(w_ac / 1e6))
     result_list = []
@@ -153,35 +151,38 @@ if __name__ == "__main__":
     H0 = sim.generate_H0(Bz)
     print('H0:', np.around(np.diag(H0) / 1e6, 2).astype(int))
     E_ac_list = np.linspace(v_ac_min, v_ac_max, v_ac_point)
-    for E_ac in E_ac_list:
-        print('=================== E_ac ==================')
-        # Drive Hamiltonian
-        d, H_g = sim.generate_Edipole_matrix(q_ac)
-        H_prime = -d * E_ac
-        Rabi = np.abs(H_prime.max()) / 2 / np.pi
-        Rabi_rydberg = np.abs(H_g.max()) / 2 / np.pi
-        print('Microwave Rabi:', Rabi / 1e6, 'MHz')
-        print('Rydberg Rabi:', Rabi_rydberg / 1e6, 'MHz')
-        # Time settings
-        dt = 2 * np.pi / w_ac / 500
-        t_span = (0, 2 / Rabi_rydberg)
-        ts = np.arange(*t_span, dt)
-
-        # Initial state |0>
-        psi0 = np.zeros(total_state, dtype=complex)
-        psi0[-2] = 1
-        y0 = np.concatenate((psi0.real, psi0.imag))  # real + imag
-        # Solve the ODE
-        sol = solve_ivp(schrodinger, t_span, y0, t_eval=ts,rtol=1e-11, atol=1e-12)
-        # print(sol.y.shape)
-        # # Probabilities
-        popu = sol.y[:total_state, :]**2 + sol.y[total_state:, :]**2  # |ψ0|²
-
-        print('min ground state population', popu[-2].min())
-        result_list.append(popu[-2].min())
-
-    setting_dict['result'] = result_list
     setting_dict['E_ac'] = E_ac_list
+    rabi_rydberg_list = np.lispace(0.5e6, 15e6, 30)
+    for rabi_rydberg in rabi_rydberg_list:
+        for E_ac in E_ac_list:
+            print('=================== E_ac ==================')
+            # Drive Hamiltonian
+            d, H_g = sim.generate_Edipole_matrix(q_ac)
+            H_prime = -d * E_ac
+            Rabi = np.abs(H_prime.max()) / 2 / np.pi
+            Rabi_rydberg = np.abs(H_g.max()) / 2 / np.pi
+            print('Microwave Rabi:', Rabi / 1e6, 'MHz')
+            print('Rydberg Rabi:', Rabi_rydberg / 1e6, 'MHz')
+            # Time settings
+            dt = 2 * np.pi / w_ac / 500
+            t_span = (0, 2 / Rabi_rydberg)
+            ts = np.arange(*t_span, dt)
+
+            # Initial state |0>
+            psi0 = np.zeros(total_state, dtype=complex)
+            psi0[-2] = 1
+            y0 = np.concatenate((psi0.real, psi0.imag))  # real + imag
+            # Solve the ODE
+            sol = solve_ivp(schrodinger, t_span, y0, t_eval=ts,rtol=1e-11, atol=1e-12)
+            # print(sol.y.shape)
+            # # Probabilities
+            popu = sol.y[:total_state, :]**2 + sol.y[total_state:, :]**2  # |ψ0|²
+
+            print('min ground state population', popu[-2].min())
+            result_list.append(popu[-2].min())
+
+        setting_dict['result']['rabi{}'.format(rabi_rydberg/1e6)] = result_list
+
     # Dump settings to a JSON file
     with open('results/raman_leakage_result.json', 'w') as json_file:
         json.dump(setting_dict, json_file, indent=4)
