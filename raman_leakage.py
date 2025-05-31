@@ -130,10 +130,9 @@ if __name__ == "__main__":
     # w_ac
     print('w_ac1:', int(w_ac / 1e6))
 
-
     E_ac_list = np.linspace(v_ac_min, v_ac_max, v_ac_point)
     setting_dict['E_ac'] = E_ac_list
-    rabi_rydberg_list = np.lispace(0.5e6, 15e6, 30)
+    rabi_rydberg_list = np.linspace(0.5e6, 15e6, 30)
     for rabi_rydberg in rabi_rydberg_list:
         ground_state = [
             [[6, 0, 1 / 2, -1 / 2], [n_r, l_r, j_r, 1 / 2], rabi_rydberg],
