@@ -8,7 +8,7 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import json
 import os
-
+import pickle
 bohr_radius = physical_constants['Bohr radius'][0]
 bohr_magneton = physical_constants['Bohr magneton in Hz/T'][0]
 
@@ -660,6 +660,6 @@ if __name__ == "__main__":
                    'prob_result': prob_result,
                    'look_state': sf_look_states,
                    }
-
-    with open('results/sf_result.json', 'w') as json_file:
-        json.dump(result_dict, json_file, indent=4)
+    
+    with open('results/sf_result.pkl', 'wb') as json_file:
+        pickle.dump(result_dict,json_file)
