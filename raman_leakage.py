@@ -76,6 +76,8 @@ if __name__ == "__main__":
     # Nearby Rydberg state
     energy_space = float(arg[17])  # GHz
     dl = int(arg[18])
+    print('Energy space:', energy_space, 'GHz')
+    print('dl', dl)
     atomic_states = find_FS_state(n_r, l_r, j_r, energy_space, dl, 'results')
 
     delta_ms = int(arg[19])
@@ -129,7 +131,7 @@ if __name__ == "__main__":
         'result': {}
     }
     # w_ac
-    print('w_ac1:', int(w_ac / 1e6))
+    print('w_ac1:', int(w_ac / 1e6), 'MHz')
 
     E_ac_list = np.linspace(v_ac_min, v_ac_max, v_ac_point)
     setting_dict['E_ac'] = E_ac_list.tolist()
@@ -137,7 +139,7 @@ if __name__ == "__main__":
         [[6, 0, 1 / 2, -1 / 2], [n_r, l_r, j_r, 1 / 2], rabi_rydberg],
         [[6, 0, 1 / 2, 1 / 2], [n_r, l_r, j_r, 3 / 2], rabi_rydberg],
     ]
-
+    print('Rydberg Rabi:', rabi_rydberg/1e6, 'MHz')
     sim = RydbergSinglePhoton(atom=cs, atom_FS_states=atomic_states, ground_state=ground_state, delay=1e-5,
                               expand_zeeman=True)
     comp_atomic_states = sim.atom_states
