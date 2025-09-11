@@ -35,6 +35,7 @@ orbital = {0: 's',
 # Cesium Atom object in Arc Akali
 cs = Cesium()
 
+
 class SinglePhoton:
     def __init__(self, atom, atom_FS_states,expand_zeeman=True):
         self.atom = atom
@@ -180,6 +181,7 @@ class RydbergSinglePhoton(SinglePhoton):
                     H_ground[i + len(self.atom_states), j] = rabi
         H_ground += np.conjugate(H_ground.T)
         return d, H_ground
+
 
 class SinglePhotonSim(SinglePhoton):
     def __init__(self, atom, ms, atom_FS_states):
@@ -359,9 +361,10 @@ class SinglePhotonSim2AC(SinglePhotonSim):
 
         for m2_idx, m2 in enumerate(self.ms2):
             for n2_idx, n2 in enumerate(self.ms2):
-                block1 = np.zeros((self.comp_atomic_states_num*self.ms_num,
-                                   self.comp_atomic_states_num*self.ms_num), dtype=complex)
+                block1 = np.zeros((self.comp_atomic_states_num*self.ms2_num,
+                                   self.comp_atomic_states_num*self.ms2_num), dtype=complex)
                 if m2 == n2:
+                    # print(m2,n2,m2*w_ac2)
                     block1 += np.eye(self.comp_atomic_states_num*self.ms_num) * m2 * w_ac2
                     for m_idx, m in enumerate(self.ms):
                         for n_idx, n in enumerate(self.ms):
@@ -369,6 +372,7 @@ class SinglePhotonSim2AC(SinglePhotonSim):
                                              dtype=complex)  # Each block of the Floquet matrix
                             if m == n:
                                 block += H0 + H_dc +np.eye(self.comp_atomic_states_num) * m * w_ac1# Diagonal element
+                                # print(m,n,m2,n2,block)
                             elif n == m + 1 or n == m - 1:
                                 block += 0.5 * H_ac1  # Off-diagonal blocks
 
@@ -377,7 +381,7 @@ class SinglePhotonSim2AC(SinglePhotonSim):
                                     m_idx + 1) * self.comp_atomic_states_num
                             col_start, col_end = n_idx * self.comp_atomic_states_num, (
                                     n_idx + 1) * self.comp_atomic_states_num
-                            block1[row_start:row_end, col_start:col_end] = block
+                            block1[row_start:row_end, col_start:col_end] += block
 
                 elif n2 == m2 + 1 or n2 == m2 - 1:
                     for m_idx, m in enumerate(self.ms):
@@ -392,7 +396,7 @@ class SinglePhotonSim2AC(SinglePhotonSim):
                                     m_idx + 1) * self.comp_atomic_states_num
                             col_start, col_end = n_idx * self.comp_atomic_states_num, (
                                     n_idx + 1) * self.comp_atomic_states_num
-                            block1[row_start:row_end, col_start:col_end] = block
+                            block1[row_start:row_end, col_start:col_end] += block
 
                 # Insert the computed block into the corresponding position in H_f
                 row_start = m2_idx * self.ms_num * self.comp_atomic_states_num
@@ -401,6 +405,7 @@ class SinglePhotonSim2AC(SinglePhotonSim):
                 col_end = (n2_idx + 1) * self.ms_num * self.comp_atomic_states_num
                 H_f[row_start:row_end, col_start:col_end] = block1
         return H_f
+
 
 def polarizability_fit(E, a, b, c):
     return -1 / 2 * a * E ** 2 - 1 / (4 * 3 * 2) * b * E ** 4 + c
