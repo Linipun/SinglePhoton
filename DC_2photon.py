@@ -38,7 +38,7 @@ if __name__ == "__main__":
     # Nearby Rydberg state
     energy_space = 60  # float(arg[1])  # GHz
     dl = 2  # int(arg[2])
-    atomic_states = find_FS_state(n_r, l_r, j_r, energy_space, dl, 'results')
+
     # ### atomic property #########
 
     q_dc = {-1: 0.0, 0: 1.0, 1: 0.0}
@@ -133,6 +133,8 @@ if __name__ == "__main__":
 
     folder = f'2AC-delta{detuning/1e6}-energy{energy_space}dl{dl}'
     os.makedirs(folder, exist_ok=True)
+
+    atomic_states = find_FS_state(n_r, l_r, j_r, energy_space, dl, folder)
     # Create settings dictionary
     setting_dict = {
         'n_r': n_r,
