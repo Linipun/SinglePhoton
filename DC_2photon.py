@@ -24,6 +24,8 @@ def main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2):
 if __name__ == "__main__":
     # Capture command-line arguments
     # arg = eval('[' + sys.argv[1] + ']')
+    folder = 'results'  # f'2AC-delta{detuning/1e6}-energy{energy_space}dl{dl}'
+    os.makedirs(folder, exist_ok=True)
 
     # ### atomic property #########
     # Rydberg state
@@ -38,7 +40,7 @@ if __name__ == "__main__":
     # Nearby Rydberg state
     energy_space = 60  # float(arg[1])  # GHz
     dl = 2  # int(arg[2])
-
+    atomic_states = find_FS_state(n_r, l_r, j_r, energy_space, dl, folder)
     # ### atomic property #########
 
     q_dc = {-1: 0.0, 0: 1.0, 1: 0.0}
@@ -131,10 +133,7 @@ if __name__ == "__main__":
     E_ac_is2 = np.linspace(v_ac_min2, v_ac_max2, v_ac_point2)
     # ########### property of E2 ###############
 
-    folder = f'2AC-delta{detuning/1e6}-energy{energy_space}dl{dl}'
-    os.makedirs(folder, exist_ok=True)
 
-    atomic_states = find_FS_state(n_r, l_r, j_r, energy_space, dl, folder)
     # Create settings dictionary
     setting_dict = {
         'n_r': n_r,
