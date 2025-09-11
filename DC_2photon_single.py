@@ -23,8 +23,8 @@ def main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2):
 
 if __name__ == "__main__":
     # Capture command-line arguments
-    # arg = eval('[' + sys.argv[1] + ']')
-    folder = 'results' #f'2AC-delta{detuning/1e6}-energy{energy_space}dl{dl}'
+    arg = eval('[' + sys.argv[1] + ']')
+    folder = 'results'  # f'2AC-delta{detuning/1e6}-energy{energy_space}dl{dl}'
     os.makedirs(folder, exist_ok=True)
 
     # ### atomic property #########
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     Bz = 1  # float(arg[4])  # G
 
     # Nearby Rydberg state
-    energy_space = 60  # float(arg[1])  # GHz
+    energy_space = 20  # float(arg[1])  # GHz
     dl = 2  # int(arg[2])
     atomic_states = find_FS_state(n_r, l_r, j_r, energy_space, dl, folder)
     # ### atomic property #########
@@ -79,14 +79,15 @@ if __name__ == "__main__":
     }
 
     # Fourier component
-    delta_ms = 3  # int(arg[3])
+    delta_ms = 2  # int(arg[3])
     ms1 = list(range(-delta_ms, delta_ms + 1))
 
     # Field strength scan parameters
-    v_ac_min = 0  # float(arg[5])
-    v_ac_max = 100  # float(arg[6])
-    v_ac_point = 40  # int(arg[7])
-    E_ac_is = np.linspace(v_ac_min, v_ac_max, v_ac_point)
+    # v_ac_min = 0  # float(arg[5])
+    # v_ac_max = 100  # float(arg[6])
+    # v_ac_point = 40  # int(arg[7])
+    # E_ac_is = np.linspace(v_ac_min, v_ac_max, v_ac_point)
+    v_ac1 = float(arg[0])
     # ########### property of E1 shiftout###############
 
     # ########### property of E polarizability  ###############
@@ -123,14 +124,15 @@ if __name__ == "__main__":
     }
 
     # Fourier component
-    delta_ms2 = 3  # int(arg[4])
+    delta_ms2 = 2  # int(arg[4])
     ms2 = list(range(-delta_ms, delta_ms + 1))
 
     # Field strength scan parameters
-    v_ac_min2 = 0  # float(arg[8])
-    v_ac_max2 = 60  # float(arg[9])
-    v_ac_point2 = 30  # int(arg[10])
-    E_ac_is2 = np.linspace(v_ac_min2, v_ac_max2, v_ac_point2)
+    # v_ac_min2 = 0  # float(arg[8])
+    # v_ac_max2 = 60  # float(arg[9])
+    # v_ac_point2 = 30  # int(arg[10])
+    # E_ac_is2 = np.linspace(v_ac_min2, v_ac_max2, v_ac_point2)
+    v_ac2 = float(arg[0])
     # ########### property of E2 ###############
 
 
@@ -177,12 +179,14 @@ if __name__ == "__main__":
             'ms2': ms2
         },
         'ac_voltage': {
-            'v_ac_min': v_ac_min,
-            'v_ac_max': v_ac_max,
-            'v_ac_point': v_ac_point,
-            'v_ac_min2': v_ac_min2,
-            'v_ac_max2': v_ac_max2,
-            'v_ac_point2': v_ac_point2
+            'v_ac1': v_ac1,
+            'v_ac2': v_ac2
+            # 'v_ac_min': v_ac_min,
+            # 'v_ac_max': v_ac_max,
+            # 'v_ac_point': v_ac_point,
+            # 'v_ac_min2': v_ac_min2,
+            # 'v_ac_max2': v_ac_max2,
+            # 'v_ac_point2': v_ac_point2
         }
     }
 
@@ -220,20 +224,22 @@ if __name__ == "__main__":
     sf_look_states = ((photon_idx_2*len(ms1)+photon_idx_1) * len(comp_atomic_states) + look_states).astype(int)
 
     figs = []
-    shiftout = np.zeros((v_ac_point, v_ac_point2))
-    alpha = np.zeros((v_ac_point, v_ac_point2))
+    # shiftout = np.zeros((v_ac_point, v_ac_point2))
+    # alpha = np.zeros((v_ac_point, v_ac_point2))
     pdf = PdfPages(f'{folder}/DC_fit.pdf')
-    for row, E_ac_i1 in enumerate(E_ac_is):
+    # for row, E_ac_i1 in enumerate(E_ac_is):
+    for row, E_ac_i1 in enumerate([v_ac1]):
         H_ac1 = -E_ac_i1 * d_ac_1
-        for col, E_ac_i2 in enumerate(E_ac_is2):
-            print(f'E1={E_ac_i1}({row/len(E_ac_is)}), E2={E_ac_i2} ({col/len(E_ac_is2)})')
+        for col, E_ac_i2 in enumerate([v_ac2]):
+            # print(f'E1={E_ac_i1}({row/len(E_ac_is)}), E2={E_ac_i2} ({col/len(E_ac_is2)})')
             H_ac2 = -E_ac_i2 * d_ac_2
 
             # Zero-DC field
             H_dc = -0*d_dc
             energy = main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2)
             base_frequency = energy[3]
-            shiftout[row, col] = energy[3]-energy[2]
+            # shiftout[row, col] = energy[3]-energy[2]
+            shiftout = energy[3]-energy[2]
 
             # find alpha(polarizability)
             E_dc_list = np.linspace(-1, 1, 30)
@@ -257,45 +263,49 @@ if __name__ == "__main__":
                         param[0] / 1e5) + r'$(V/cm)^{-2}$' + '\n' + r'$\beta=$' + '{:.2f} MHz'.format(
                         param[1] / 1e2) + r'$(V/cm)^{-4}$')
             pdf.savefig(fig)
-            alpha[row, col] = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
+            # alpha[row, col] = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
+            alpha = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
             del(fig)
     pdf.close()
-    fig2, ax2 = plt.subplots(ncols=2, figsize=(10, 5))
+    # fig2, ax2 = plt.subplots(ncols=2, figsize=(10, 5))
+    #
+    # # First heatmap (Shiftout)
+    # sns.heatmap(
+    #     shiftout/1e6,
+    #     ax=ax2[0],
+    #     cmap="Greens",
+    #     cbar=True,
+    #     xticklabels=np.round(E_ac_is2, 2),  # X-axis ticks
+    #     yticklabels=np.round(E_ac_is, 2)  # Y-axis ticks
+    # )
+    # ax2[0].set_title("Shiftout[MHz]")
+    # ax2[0].set_xlabel("$E_{pol}$ (V/m)")
+    # ax2[0].set_ylabel("$E_{shift}$ (V/m)")
+    # ax2[0].invert_yaxis()  # so low field is at bottom
+    #
+    # # Second heatmap (Polarizability)
+    # sns.heatmap(
+    #     alpha,
+    #     ax=ax2[1],
+    #     cmap="Blues",
+    #     cbar=True,
+    #     xticklabels=np.round(E_ac_is2, 2),
+    #     yticklabels=np.round(E_ac_is, 2)
+    # )
+    # ax2[1].set_title("Polarizability$ [MHz/cm^2]$")
+    # ax2[1].set_xlabel("$E_{pol}$ (V/m)")
+    # ax2[1].set_ylabel("$E_{shift}$ (V/m)")
+    # ax2[1].invert_yaxis()
+    #
+    # # Improve layout (so tick labels don't overlap)
+    # fig2.tight_layout()
+    # fig2.savefig(f"{folder}/result.pdf", dpi=300)
 
-    # First heatmap (Shiftout)
-    sns.heatmap(
-        shiftout/1e6,
-        ax=ax2[0],
-        cmap="Greens",
-        cbar=True,
-        xticklabels=np.round(E_ac_is2, 2),  # X-axis ticks
-        yticklabels=np.round(E_ac_is, 2)  # Y-axis ticks
-    )
-    ax2[0].set_title("Shiftout[MHz]")
-    ax2[0].set_xlabel("$E_{pol}$ (V/m)")
-    ax2[0].set_ylabel("$E_{shift}$ (V/m)")
-    ax2[0].invert_yaxis()  # so low field is at bottom
+    with open(f"{folder}/result.txt", "w") as f:
+        f.write(f'{shiftout},{alpha}')
 
-    # Second heatmap (Polarizability)
-    sns.heatmap(
-        alpha,
-        ax=ax2[1],
-        cmap="Blues",
-        cbar=True,
-        xticklabels=np.round(E_ac_is2, 2),
-        yticklabels=np.round(E_ac_is, 2)
-    )
-    ax2[1].set_title("Polarizability$ [MHz/cm^2]$")
-    ax2[1].set_xlabel("$E_{pol}$ (V/m)")
-    ax2[1].set_ylabel("$E_{shift}$ (V/m)")
-    ax2[1].invert_yaxis()
-
-    # Improve layout (so tick labels don't overlap)
-    fig2.tight_layout()
-    fig2.savefig(f"{folder}/result.pdf", dpi=300)
-
-    with open(f"{folder}/result.pkl", "wb") as f:
-        pickle.dump({"shiftout": shiftout, "polarizability": alpha}, f)
+    # with open(f"{folder}/result.pkl", "wb") as f:
+    #     pickle.dump({"shiftout": shiftout, "polarizability": alpha}, f)
 
     # print('bad')
     # with PdfPages('results/DC_fit.pdf') as pdf:
