@@ -24,7 +24,6 @@ def main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2):
 if __name__ == "__main__":
     # Capture command-line arguments
     # arg = eval('[' + sys.argv[1] + ']')
-    os.makedirs('results', exist_ok=True)
 
     # ### atomic property #########
     # Rydberg state
@@ -132,7 +131,8 @@ if __name__ == "__main__":
     E_ac_is2 = np.linspace(v_ac_min2, v_ac_max2, v_ac_point2)
     # ########### property of E2 ###############
 
-
+    folder = f'2AC-delta{detuning/1e6}-energy{energy_space}dl{dl}'
+    os.makedirs(folder, exist_ok=True)
     # Create settings dictionary
     setting_dict = {
         'n_r': n_r,
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     }
 
     # Dump settings to a JSON file
-    with open('results/settings.json', 'w') as json_file:
+    with open(f'{folder}/settings.json', 'w') as json_file:
         json.dump(setting_dict, json_file, indent=4)
 
     sim = SinglePhotonSim2AC(atom=cs, ms1=ms1, ms2=ms2, atom_FS_states=atomic_states)
@@ -211,7 +211,7 @@ if __name__ == "__main__":
                  'p_prop': [],
                  'd_prop': []}
 
-    look_states = np.array([0,1,2,3])
+    look_states = np.array([0, 1, 2, 3])
     photon_states_1 = 0
     photon_states_2 = 0
     photon_idx_1 = np.where(np.array(ms1) == photon_states_1)[0][0]
@@ -221,7 +221,7 @@ if __name__ == "__main__":
     figs = []
     shiftout = np.zeros((v_ac_point, v_ac_point2))
     alpha = np.zeros((v_ac_point, v_ac_point2))
-    pdf = PdfPages('results/DC_fit.pdf')
+    pdf = PdfPages(f'{folder}/DC_fit.pdf')
     for row, E_ac_i1 in enumerate(E_ac_is):
         H_ac1 = -E_ac_i1 * d_ac_1
         for col, E_ac_i2 in enumerate(E_ac_is2):
@@ -263,16 +263,16 @@ if __name__ == "__main__":
 
     # First heatmap (Shiftout)
     sns.heatmap(
-        shiftout,
+        shiftout/1e6,
         ax=ax2[0],
         cmap="Greens",
         cbar=True,
         xticklabels=np.round(E_ac_is2, 2),  # X-axis ticks
         yticklabels=np.round(E_ac_is, 2)  # Y-axis ticks
     )
-    ax2[0].set_title("Shiftout")
-    ax2[0].set_xlabel("E_ac_2 (V)")
-    ax2[0].set_ylabel("E_ac (V)")
+    ax2[0].set_title("Shiftout[MHz]")
+    ax2[0].set_xlabel("$E_{pol}$ (V/m)")
+    ax2[0].set_ylabel("$E_{shift}$ (V/m)")
     ax2[0].invert_yaxis()  # so low field is at bottom
 
     # Second heatmap (Polarizability)
@@ -284,16 +284,16 @@ if __name__ == "__main__":
         xticklabels=np.round(E_ac_is2, 2),
         yticklabels=np.round(E_ac_is, 2)
     )
-    ax2[1].set_title("Polarizability")
-    ax2[1].set_xlabel("E_ac_2 (V)")
-    ax2[1].set_ylabel("E_ac (V)")
+    ax2[1].set_title("Polarizability$ [MHz/cm^2]$")
+    ax2[1].set_xlabel("$E_{pol}$ (V/m)")
+    ax2[1].set_ylabel("$E_{shift}$ (V/m)")
     ax2[1].invert_yaxis()
 
     # Improve layout (so tick labels don't overlap)
     fig2.tight_layout()
-    fig2.savefig("result.pdf", dpi=300)
+    fig2.savefig(f"{folder}/result.pdf", dpi=300)
 
-    with open("result.pkl", "wb") as f:
+    with open(f"{folder}/result.pkl", "wb") as f:
         pickle.dump({"shiftout": shiftout, "polarizability": alpha}, f)
 
     # print('bad')
