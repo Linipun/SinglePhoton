@@ -128,11 +128,20 @@ if __name__ == "__main__":
     ms2 = list(range(-delta_ms, delta_ms + 1))
 
     # Field strength scan parameters
-    # v_ac_min2 = 0  # float(arg[8])
-    # v_ac_max2 = 60  # float(arg[9])
-    # v_ac_point2 = 30  # int(arg[10])
+
     # E_ac_is2 = np.linspace(v_ac_min2, v_ac_max2, v_ac_point2)
-    v_ac2 = float(arg[0])
+    v_ac2 = float(arg[1])
+    if v_ac2 == 0:
+        v_ac_min2 = 0  # float(arg[8])
+        v_ac_max2 = 25  # float(arg[9])
+        v_ac_point2 = 26  # int(arg[10])
+    elif v_ac2 == 1:
+        v_ac_min2 = 26  # float(arg[8])
+        v_ac_max2 = 50  # float(arg[9])
+        v_ac_point2 = 26  # int(arg[10])
+    else:
+        raise ValueError(f'v_ac2 is neither 1 or 2 -> {v_ac2}')
+    E_ac_is2 = np.linspace(v_ac_min2, v_ac_max2, v_ac_point2)
     # ########### property of E2 ###############
 
 
@@ -224,22 +233,22 @@ if __name__ == "__main__":
     sf_look_states = ((photon_idx_2*len(ms1)+photon_idx_1) * len(comp_atomic_states) + look_states).astype(int)
 
     figs = []
-    # shiftout = np.zeros((v_ac_point, v_ac_point2))
-    # alpha = np.zeros((v_ac_point, v_ac_point2))
+    shiftout = np.zeros(v_ac_point2)
+    alpha = np.zeros(v_ac_point2)
     pdf = PdfPages(f'{folder}/DC_fit.pdf')
     # for row, E_ac_i1 in enumerate(E_ac_is):
     for row, E_ac_i1 in enumerate([v_ac1]):
         H_ac1 = -E_ac_i1 * d_ac_1
-        for col, E_ac_i2 in enumerate([v_ac2]):
-            # print(f'E1={E_ac_i1}({row/len(E_ac_is)}), E2={E_ac_i2} ({col/len(E_ac_is2)})')
+        for col, E_ac_i2 in enumerate(E_ac_is2):
+            print(f'E1={E_ac_i1}, E2={E_ac_i2} ({col/len(E_ac_is2)})')
             H_ac2 = -E_ac_i2 * d_ac_2
 
             # Zero-DC field
             H_dc = -0*d_dc
             energy = main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2)
             base_frequency = energy[3]
-            # shiftout[row, col] = energy[3]-energy[2]
-            shiftout = energy[3]-energy[2]
+            shiftout[col] = energy[3]-energy[2]
+            # shiftout = energy[3]-energy[2]
 
             # find alpha(polarizability)
             E_dc_list = np.linspace(-1, 1, 30)
@@ -263,9 +272,12 @@ if __name__ == "__main__":
                         param[0] / 1e5) + r'$(V/cm)^{-2}$' + '\n' + r'$\beta=$' + '{:.2f} MHz'.format(
                         param[1] / 1e2) + r'$(V/cm)^{-4}$')
             pdf.savefig(fig)
-            # alpha[row, col] = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
-            alpha = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
+            alpha[col] = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
+            # alpha = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
             del(fig)
+
+            with open(f"{folder}/result.txt", "a") as f:
+                f.write(f'{shiftout},{alpha}\n')
     pdf.close()
     # fig2, ax2 = plt.subplots(ncols=2, figsize=(10, 5))
     #
@@ -301,8 +313,7 @@ if __name__ == "__main__":
     # fig2.tight_layout()
     # fig2.savefig(f"{folder}/result.pdf", dpi=300)
 
-    with open(f"{folder}/result.txt", "w") as f:
-        f.write(f'{shiftout},{alpha}')
+
 
     # with open(f"{folder}/result.pkl", "wb") as f:
     #     pickle.dump({"shiftout": shiftout, "polarizability": alpha}, f)
