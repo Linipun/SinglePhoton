@@ -116,6 +116,7 @@ class SinglePhoton:
 
 
 class RydbergSinglePhoton(SinglePhoton):
+    """Original Ramen calculation"""
     def __init__(self, atom, atom_FS_states, ground_state, delay, expand_zeeman=True):
         super().__init__(atom, atom_FS_states, expand_zeeman=expand_zeeman)
         self.ground_state = ground_state
@@ -179,6 +180,76 @@ class RydbergSinglePhoton(SinglePhoton):
                 if s == ground_state:
                     # print(i + len(self.atom_states), j)
                     H_ground[i + len(self.atom_states), j] = rabi
+        H_ground += np.conjugate(H_ground.T)
+        return d, H_ground
+
+
+class RydbergLeakage(SinglePhoton):
+    """Original Ramen calculation"""
+    def __init__(self, atom, atom_FS_states, ground_state, delay, expand_zeeman=True):
+        super().__init__(atom, atom_FS_states, expand_zeeman=expand_zeeman)
+        self.ground_state = ground_state
+        self.delay = delay
+        self.comp_atomic_states_num += 1# len(ground_state)
+        self.len_ground_state = 1 #len(self.ground_state)
+
+    def generate_H0(self, Bz):
+        n_r, l_r, j_r, mj_r = self.atom_states[0]
+        Zeeman_shift_ryd = self.atom.getZeemanEnergyShift(l=l_r, j=j_r, mj=mj_r, magneticFieldBz=Bz / 10000,
+                                                          s=0.5) / (
+                                   hbar * 2 * np.pi)
+        state_frequencies = []
+        # for state in self.ground_state:
+            # n_r, l_r, j_r, mj = state[0]
+            # rabi = state[1] * 2 * np.pi
+        # fine_frequency = self.atom.getTransitionFrequency(n1=n_r, l1=l_r, j1=j_r, n2=n_r, l2=l, j2=j, s=0.5)
+        Zeeman_shift = self.atom.getZeemanEnergyShift(l=l_r, j=j_r, mj=mj_r, magneticFieldBz=Bz / 10000, s=0.5) / \
+                       (hbar * 2 * np.pi)
+        state_frequencies.append(Zeeman_shift - Zeeman_shift_ryd)
+        for (n, l, j, mj) in self.atom_states:
+            fine_frequency = self.atom.getTransitionFrequency(n1=n_r, l1=l_r, j1=j_r, n2=n, l2=l, j2=j, s=0.5)
+            Zeeman_shift = self.atom.getZeemanEnergyShift(l=l, j=j, mj=mj, magneticFieldBz=Bz / 10000, s=0.5) / \
+                           (hbar * 2 * np.pi)
+            state_frequencies.append(fine_frequency + Zeeman_shift - Zeeman_shift_ryd)
+
+        H0 = np.diag(state_frequencies)
+        print('H0 shape:', H0.shape)
+        return H0
+
+    def generate_Edipole_matrix(self, qs):
+        """
+        Generate electric dipole matrix element from list of atomic state
+
+        """
+        d = np.zeros((self.comp_atomic_states_num, self.comp_atomic_states_num), dtype=np.complex64)
+        for i, (a_n, a_l, a_j, a_mj) in enumerate(self.atom_states):
+            for j, (b_n, b_l, b_j, b_mj) in enumerate(self.atom_states):
+                q = b_mj - a_mj
+                # Filter state that doesn't meet the Dipole selection rules i.e. Delta mj >1, delta l != 1, or Delta j>1
+                if abs(q) > 1 or abs(a_l - b_l) != 1 or abs(a_j - b_j) > 1:
+                    d[i + self.len_ground_state, j+ self.len_ground_state] = 0
+                elif i > j:
+                    # <n_a, l_a, j_a, mj_a| er | n_b, l_b, j_b mj_b> E_q
+                    d[i+ self.len_ground_state, j+ self.len_ground_state] = self.atom.getDipoleMatrixElement(n1=a_n, l1=a_l, j1=a_j, mj1=a_mj, n2=b_n, l2=b_l,
+                                                               j2=b_j,
+                                                               mj2=b_mj, q=q) * qs[
+                                  q] * bohr_radius * e / hbar / 2 / np.pi
+
+                else:
+                    d[i+ self.len_ground_state, j+ self.len_ground_state] = 0
+
+        # d += np.conjugate(d.T)
+        d *= -1
+        print('electric dipole matrix size:', d.shape)
+
+        H_ground = np.zeros((self.comp_atomic_states_num, self.comp_atomic_states_num), dtype=np.complex64)
+        for i, state in enumerate(self.ground_state):
+            connect_state = state[0]
+            rabi = state[1] * 2 * np.pi
+            for j, s in enumerate(self.atom_states):
+                if s == connect_state:
+                    # print(i + len(self.atom_states), j)
+                    H_ground[0, j+self.len_ground_state] = rabi
         H_ground += np.conjugate(H_ground.T)
         return d, H_ground
 
