@@ -8,7 +8,7 @@ from arc import *
 import json
 import matplotlib.pyplot as plt
 import seaborn as sns
-cs = Cesium()
+cs = Rubidium()
 import pickle
 
 def main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2):
@@ -29,16 +29,16 @@ if __name__ == "__main__":
 
     # ### atomic property #########
     # Rydberg state
-    n_r = 60  # int(arg[0]) #
+    n_r = 62  # int(arg[0]) #
     l_r = 1  # int(arg[1])
     j_r = 3/2  # float(arg[2])
     mj_r = 3/2  # float(arg[3])
 
     # Magnetic field
-    Bz = 1  # float(arg[4])  # G
+    Bz = 10  # float(arg[4])  # G
 
     # Nearby Rydberg state
-    energy_space = 20  # float(arg[1])  # GHz
+    energy_space = 100  # float(arg[1])  # GHz
     dl = 2  # int(arg[2])
     atomic_states = find_FS_state(n_r, l_r, j_r, energy_space, dl, folder)
     # ### atomic property #########
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     l_2 = 2  # int(arg[13])
     j_2 = 5/2  # float(arg[14])
     mj_2 = mj_r  # float(arg[15])
-    detuning2 = -20e6  # float(arg[1])
+    detuning2 = 0 # float(arg[1])
 
     # Calculate laser frequency accounting for Zeeman shift and transition frequency
     Zeeman_shift_ryd = cs.getZeemanEnergyShift(l=l_1, j=j_1, mj=mj_1, magneticFieldBz=Bz / 10000, s=0.5) / (

@@ -14,7 +14,7 @@ bohr_magneton = physical_constants['Bohr magneton in Hz/T'][0]
 
 
 # Cesium Atom object in Arc Akali
-cs = Cesium()
+cs = Rubidium()
 
 ## ground state
 n_g = 6
@@ -31,10 +31,6 @@ orbital = {0: 's',
            4: 'g',
            5: 'h',
            6: 'i'}
-
-# Cesium Atom object in Arc Akali
-cs = Cesium()
-
 
 class SinglePhoton:
     def __init__(self, atom, atom_FS_states,expand_zeeman=True):
