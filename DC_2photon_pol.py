@@ -8,28 +8,32 @@ from arc import *
 import json
 import matplotlib.pyplot as plt
 import seaborn as sns
-cs = Rubidium()
+cs = Cesium()
 import pickle
 
-def main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2):
+def main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2, r_eig, shift_eig):
     H_f = sim.generate_shirley_floquet_hamiltonian(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2)
     eig_val, eig_vec = np.linalg.eig(H_f)
-    prob = np.abs(eig_vec ** 2)
-    prob_state = prob[sf_look_states]
-    state_idx = np.argmax(prob_state, axis=1)
-    energy = eig_val[state_idx]
-    return energy.astype(np.float64), eig_val, eig_vec
+    new_r = np.argmax(np.abs(r_eig.conj()@eig_vec))
+    new_shift = np.argmax(np.abs(shift_eig.conj()@eig_vec))
+    new_r_eig = eig_vec[:,new_r]
+    new_shift_eig = eig_vec[:,new_shift]
+    r_energy = eig_val[new_r]
+    shift_energy = eig_val[new_shift]
+    return r_energy.astype(np.float64), shift_energy.astype(np.float64), new_r_eig, new_shift_eig
 
 
 if __name__ == "__main__":
+
     # Capture command-line arguments
     arg = eval('[' + sys.argv[1] + ']')
     folder = 'results'  # f'2AC-delta{detuning/1e6}-energy{energy_space}dl{dl}'
     os.makedirs(folder, exist_ok=True)
-
+    with open('eigvec_shift_-20.pkl', 'rb') as f:
+        data = pickle.load(f)
     # ### atomic property #########
     # Rydberg state
-    n_r = 62  # int(arg[0]) #
+    n_r = 60  # int(arg[0]) #
     l_r = 1  # int(arg[1])
     j_r = 3/2  # float(arg[2])
     mj_r = 3/2  # float(arg[3])
@@ -86,7 +90,6 @@ if __name__ == "__main__":
     # v_ac_min = 0  # float(arg[5])
     # v_ac_max = 100  # float(arg[6])
     # v_ac_point = 40  # int(arg[7])
-    # E_ac_is = np.linspace(v_ac_min, v_ac_max, v_ac_point)
     v_ac1 = float(arg[0])
     # ########### property of E1 shiftout###############
 
@@ -130,18 +133,21 @@ if __name__ == "__main__":
     # Field strength scan parameters
 
     # E_ac_is2 = np.linspace(v_ac_min2, v_ac_max2, v_ac_point2)
-    v_ac2 = float(arg[1])
-    if v_ac2 == 0:
-        v_ac_min2 = 0  # float(arg[8])
-        v_ac_max2 = 25  # float(arg[9])
-        v_ac_point2 = 26  # int(arg[10])
-    elif v_ac2 == 1:
-        v_ac_min2 = 26  # float(arg[8])
-        v_ac_max2 = 50  # float(arg[9])
-        v_ac_point2 = 26  # int(arg[10])
-    else:
-        raise ValueError(f'v_ac2 is neither 1 or 2 -> {v_ac2}')
-    E_ac_is2 = np.linspace(v_ac_min2, v_ac_max2, v_ac_point2)
+    # v_ac2 = float(arg[1])
+    # if v_ac2 == 0:
+    #     v_ac_min2 = 0  # float(arg[8])
+    #     v_ac_max2 = 25  # float(arg[9])
+    #     v_ac_point2 = 26  # int(arg[10])
+    # elif v_ac2 == 1:
+    #     v_ac_min2 = 26  # float(arg[8])
+    #     v_ac_max2 = 50  # float(arg[9])
+    #     v_ac_point2 = 26  # int(arg[10])
+    # else:
+    #     raise ValueError(f'v_ac2 is neither 1 or 2 -> {v_ac2}')
+    E_ac_is1 = np.linspace(0, 200, 21)
+    E_ac_is2 = np.linspace(0, 10, 51)
+    shiftout = np.zeros(51)
+    alpha = np.zeros(51)
     # ########### property of E2 ###############
 
 
@@ -188,8 +194,8 @@ if __name__ == "__main__":
             'ms2': ms2
         },
         'ac_voltage': {
-            'v_ac1': v_ac1,
-            'v_ac2': v_ac2
+            # 'v_ac1': v_ac1,
+            # 'v_ac2': v_ac2
             # 'v_ac_min': v_ac_min,
             # 'v_ac_max': v_ac_max,
             # 'v_ac_point': v_ac_point,
@@ -232,57 +238,65 @@ if __name__ == "__main__":
     photon_idx_2 = np.where(np.array(ms2) == photon_states_2)[0][0]
     sf_look_states = ((photon_idx_2*len(ms1)+photon_idx_1) * len(comp_atomic_states) + look_states).astype(int)
 
+    pure_r_eig = np.zeros(total_state, dtype=np.complex64)
+    pure_shift_eig = np.zeros(total_state, dtype=np.complex64)
+    pure_r_eig[sf_look_states[3]] = 1
+    pure_shift_eig[sf_look_states[2]] = 1
+
+
     figs = []
-    shiftout = np.zeros(v_ac_point2)
-    alpha = np.zeros(v_ac_point2)
-    # pdf = PdfPages(f'{folder}/DC_fit.pdf')
+
+
+    pdf = PdfPages(f'{folder}/DC_fit.pdf')
     # for row, E_ac_i1 in enumerate(E_ac_is):
-    eig_vals = []
-    eig_vecs = []
+    eig_dict = {}
+    eig_shift_dict = {}
+    E_ac_i2 = 0
+    col = 0
     for row, E_ac_i1 in enumerate([v_ac1]):
         H_ac1 = -E_ac_i1 * d_ac_1
+        r_eig = data['mj3/2']['{:.1f}_0.0'.format(E_ac_i1)]
+        shift_eig = data['mj1/2']['{:.1f}_0.0'.format(E_ac_i1)]
         for col, E_ac_i2 in enumerate(E_ac_is2):
             print(f'E1={E_ac_i1}, E2={E_ac_i2} ({col/len(E_ac_is2)})')
             H_ac2 = -E_ac_i2 * d_ac_2
-
             # Zero-DC field
             H_dc = -0*d_dc
-            energy, eig_val, eig_vec = main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2)
-            eig_vals.append(eig_val)
-            eig_vecs.append(eig_vec)
-        #     base_frequency = energy[3]
-        #     shiftout[col] = energy[3]-energy[2]
-        #     # shiftout = energy[3]-energy[2]
+            r_energy, shift_energy, r_eig, shift_eig = main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2, r_eig, shift_eig)
+            print(E_ac_i1, E_ac_i2, r_energy - shift_energy)
+            shiftout[col] = r_energy - shift_energy
+            eig_dict['{:.1f}_{:.1f}'.format(E_ac_i1, E_ac_i2)] = r_eig
+            eig_shift_dict['{:.1f}_{:.1f}'.format(E_ac_i1, E_ac_i2)] = shift_eig
+            base_frequency = r_energy
+            # find alpha(polarizability)
+            E_dc_list = np.linspace(-1, 1, 30)
+            energy_dc = np.zeros(len(E_dc_list))
+            i = 0
+            for E_dc in E_dc_list:
+                H_dc = -E_dc * d_dc
+                r_energy, shift_energy, r_eig, shift_eig = main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2, r_eig, shift_eig)
+                energy_dc[i] = r_energy
+                i += 1
 
-        #     # find alpha(polarizability)
-        #     E_dc_list = np.linspace(-1, 1, 30)
-        #     energy_dc = np.zeros(len(E_dc_list))
-        #     i = 0
-        #     for E_dc in E_dc_list:
-        #         H_dc = -E_dc * d_dc
-        #         energy, junk1, junk2 = main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2)
-        #         energy_dc[i] = energy[3]
-        #         i += 1
-        #
-        #     fig, ax = plt.subplots()
-        #     label = []
-        #     ax.scatter(E_dc_list, energy_dc/1e6)
-        #     ax.set_ylabel('$\Delta U$ [MHz]', fontsize=15)
-        #     ax.set_xlabel('$E_{dc}$ [V/m]', fontsize=15)
-        #     ax.set_title('E1={},E2={}'.format(E_ac_i1, E_ac_i2))
-        #     param, err = curve_fit(polarizability_fit, E_dc_list, energy_dc, p0=[-6e4, 7e1, base_frequency])
-        #     ax.plot(E_dc_list, polarizability_fit(E_dc_list, *param) / 1e6, '-', linewidth=3,
-        #             label=r'$\alpha=$' + '{:.2f} GHz'.format(
-        #                 param[0] / 1e5) + r'$(V/cm)^{-2}$' + '\n' + r'$\beta=$' + '{:.2f} MHz'.format(
-        #                 param[1] / 1e2) + r'$(V/cm)^{-4}$')
-        #     pdf.savefig(fig)
-        #     alpha[col] = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
-        #     # alpha = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
-        #     del(fig)
-        #
-        #     with open(f"{folder}/result.txt", "a") as f:
-        #         f.write(f'{shiftout},{alpha}\n')
-    # pdf.close()
+            fig, ax = plt.subplots()
+            label = []
+            ax.scatter(E_dc_list, energy_dc/1e6)
+            ax.set_ylabel('$\Delta U$ [MHz]', fontsize=15)
+            ax.set_xlabel('$E_{dc}$ [V/m]', fontsize=15)
+            ax.set_title('E1={},E2={}'.format(E_ac_i1, E_ac_i2))
+            param, err = curve_fit(polarizability_fit, E_dc_list, energy_dc, p0=[-6e4, 7e1, base_frequency])
+            ax.plot(E_dc_list, polarizability_fit(E_dc_list, *param) / 1e6, '-', linewidth=3,
+                    label=r'$\alpha=$' + '{:.2f} GHz'.format(
+                        param[0] / 1e5) + r'$(V/cm)^{-2}$' + '\n' + r'$\beta=$' + '{:.2f} MHz'.format(
+                        param[1] / 1e2) + r'$(V/cm)^{-4}$')
+            pdf.savefig(fig)
+            alpha[col] = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
+            # alpha = param[0] / 1e6 * 1e4  # 1e6-> MHz, 1e4 -> cm^2
+            del(fig)
+
+    with open(f"{folder}/result.txt", "a") as f:
+        f.write(f'{shiftout},{alpha}\n')
+    pdf.close()
     # fig2, ax2 = plt.subplots(ncols=2, figsize=(10, 5))
     #
     # # First heatmap (Shiftout)
@@ -317,10 +331,38 @@ if __name__ == "__main__":
     # fig2.tight_layout()
     # fig2.savefig(f"{folder}/result.pdf", dpi=300)
 
+    fig2, ax2 = plt.subplots(figsize=(5, 8))
+    x_step = 6  # show every 10th tick on x-axis
+    y_step = 6  # show every 10th tick on y-axis
+
+    # First heatmap (Shiftout)
+    # im0 = ax2.imshow(
+    #     shiftout / 1e6,
+    #     aspect="auto",
+    #     origin="upper",
+    #     cmap="Greens",
+    #     vmin=-2000, vmax=2000
+    # )
+    # cbar0 = fig2.colorbar(im0, ax=ax2)
+    # ax2.set_title("Shiftout [MHz]")
+    # ax2.set_xlabel(r"$E_{pol}$ (V/m)")
+    # ax2.set_ylabel(r"$E_{shift}$ (V/m)")
+    # ax2.invert_yaxis()  # so low field is at bottom
+    #
+    # # place ticks at cell centers: index + 0.5
+    # nx0, ny0 = len(E_ac_is2), len(E_ac_is1)
+    # xi0 = np.arange(0, nx0, x_step)
+    # yi0 = np.arange(0, ny0, y_step)
+    # ax2.set_xticks(xi0 + 0.5)
+    # ax2.set_yticks(yi0 + 0.5)
+    # ax2.set_xticklabels(np.round(E_ac_is2[xi0]).astype(int), rotation=0)
+    # ax2.set_yticklabels(np.round(E_ac_is1[yi0]).astype(int), rotation=0)
+    # fig2.tight_layout()
+    # fig2.savefig("result.pdf", dpi=300)
 
 
     with open(f"{folder}/result.pkl", "wb") as f:
-        pickle.dump({"eig_val": eig_vals, "eig_vec": eig_vecs}, f)
+        pickle.dump({'mj3/2':eig_dict,'mj1/2':eig_shift_dict}, f)
 
     # print('bad')
     # with PdfPages('results/DC_fit.pdf') as pdf:

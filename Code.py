@@ -14,7 +14,7 @@ bohr_magneton = physical_constants['Bohr magneton in Hz/T'][0]
 
 
 # Cesium Atom object in Arc Akali
-cs = Rubidium()
+cs = Cesium()
 
 ## ground state
 n_g = 6
