@@ -11,21 +11,46 @@ import seaborn as sns
 cs = Cesium()
 import pickle
 
-def main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2, r_eig, shift_eig):
+def main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2, bare_gate, bare_leak, w_floor=1e-3):
+    """
+    Identify the Rydberg-relevant dressed states by their FIXED bare-atomic character
+    (what the 319 nm laser couples to) -- NOT by chaining to the previous field step's
+    eigenvector, which drifts and can hop branches at the many avoided crossings the
+    leakage state sweeps through as the field is raised.
+
+    Returns the gate quasi-energy E_gate and the character-weighted effective leakage
+    detuning
+        Delta_eff = ( sum_k |<bare_leak|k>|^2 / (E_k - E_gate)^2 )^(-1/2),
+    summed over ALL dressed branches carrying bare-leak character.  This is drift-free,
+    avoided-crossing-proof, reduces to the bare gate-leak gap when one branch dominates,
+    and is the effective detuning the leakage budget needs (leakage ~ Omega^2/Delta_eff^2).
+    Validated at low field against the two-level Omega^2/4Delta AC-Stark shift.
+    """
     H_f = sim.generate_shirley_floquet_hamiltonian(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2)
-    eig_val, eig_vec = np.linalg.eig(H_f)
-    new_r = np.argmax(np.abs(r_eig.conj()@eig_vec))
-    new_shift = np.argmax(np.abs(shift_eig.conj()@eig_vec))
-    new_r_eig = eig_vec[:,new_r]
-    new_shift_eig = eig_vec[:,new_shift]
-    r_energy = eig_val[new_r]
-    shift_energy = eig_val[new_shift]
-    return r_energy.astype(np.float64), shift_energy.astype(np.float64), new_r_eig, new_shift_eig
+    E, V = np.linalg.eigh(H_f)                          # Hermitian -> real E, orthonormal columns
+    w_gate = np.abs(bare_gate.conj() @ V) ** 2          # |<bare_gate|k>|^2 for every dressed state k
+    w_leak = np.abs(bare_leak.conj() @ V) ** 2          # |<bare_leak|k>|^2
+
+    kg = np.argmax(w_gate)                              # gate barely dresses -> one dominant branch
+    E_gate = E[kg]
+
+    delta = E - E_gate                                  # detuning of every branch from the gate
+    keep = (w_leak > w_floor) & (delta != 0)
+    Delta_eff = np.sum(w_leak[keep] / delta[keep] ** 2) ** -0.5
+
+    kl = np.argmax(w_leak)
+    diag = dict(gate_purity=float(w_gate[kg]),
+                leak_recovered=float(w_leak.sum()),    # ~1 if the basis/Floquet zone is complete
+                n_leak_branches=int(keep.sum()),
+                bright_gap=float(E[kl] - E_gate),       # single dominant-branch gap (old 'shiftout')
+                gate_vec=V[:, kg], leak_vec=V[:, kl])
+    return E_gate, Delta_eff, diag
 
 
 if __name__ == "__main__":
     # Capture command-line arguments
     arg = eval('[' + sys.argv[1] + ']')
+    print(sys.argv[1], arg)
     folder = 'results'  # f'2AC-delta{detuning/1e6}-energy{energy_space}dl{dl}'
     os.makedirs(folder, exist_ok=True)
 
@@ -81,8 +106,11 @@ if __name__ == "__main__":
         1: np.sqrt(sigma_plus / pol_total)
     }
 
-    # Fourier component
-    delta_ms = 2  # int(arg[3])
+    # Fourier component (field 1 = the microwave that dresses the leak state).
+    # delta_ms=6 (+-6 sidebands): the near-resonant strong drive pulls in multi-photon
+    # processes, so +-2 is badly non-converged above ~50 V/m (gap sign-flips; a leakage
+    # resonance near ~100 V/m is missed). Delta_eff at 200 V/m converges only by +-5..6.
+    delta_ms = 6  # int(arg[3])
     ms1 = list(range(-delta_ms, delta_ms + 1))
 
     # Field strength scan parameters
@@ -125,9 +153,12 @@ if __name__ == "__main__":
         1: np.sqrt(sigma_plus / pol_total)
     }
 
-    # Fourier component
-    delta_ms2 = 2  # int(arg[4])
-    ms2 = list(range(-delta_ms, delta_ms + 1))
+    # Fourier component (field 2 = polarizability beam). It is OFF in this shiftout scan
+    # (E_ac_i2=0), so a single block ms2=[0] is exact and keeps the Floquet dim at comp*13*1
+    # instead of comp*13*13. (Enabled by the Code.py block1-sizing fix.) If you turn field 2
+    # on, raise delta_ms2 to a converged value for that beam.
+    delta_ms2 = 0  # int(arg[4])
+    ms2 = list(range(-delta_ms2, delta_ms2 + 1))
 
     # Field strength scan parameters
 
@@ -250,25 +281,27 @@ if __name__ == "__main__":
     # for row, E_ac_i1 in enumerate(E_ac_is):
     eig_dict = {}
     eig_shift_dict = {}
+    bare_gate = pure_r_eig       # FIXED bare references (gate mj=3/2, leak mj=1/2), built once above;
+    bare_leak = pure_shift_eig   # never re-assigned -> no drift, no branch-hopping at avoided crossings
     E_ac_i2 = 0
     col = 0
     for row, E_ac_i1 in enumerate(E_ac_is1):
         H_ac1 = -E_ac_i1 * d_ac_1
-        r_eig = pure_r_eig
-        shift_eig = pure_shift_eig
         # for col, E_ac_i2 in enumerate(E_ac_is2):
-        print(f'E1={E_ac_i1}, E2={E_ac_i2} ({col/len(E_ac_is2)})')
         H_ac2 = -E_ac_i2 * d_ac_2
         # Zero-DC field
         H_dc = -0*d_dc
-        r_energy, shift_energy, r_eig, shift_eig = main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2, r_eig, shift_eig)
-        print(E_ac_i1, E_ac_i2, r_energy - shift_energy)
-        shiftout[row, col] = r_energy - shift_energy
-        eig_dict['{:.1f}_{:.1f}'.format(E_ac_i1, E_ac_i2)] = r_eig
-        eig_shift_dict['{:.1f}_{:.1f}'.format(E_ac_i1, E_ac_i2)] = shift_eig
-        if col ==0:
-            pure_r_eig = r_eig
-            pure_shift_eig = shift_eig
+        E_gate, Delta_eff, diag = main(H0, H_dc, H_ac1, H_ac2, w_ac_1, w_ac_2, bare_gate, bare_leak)
+        print(f'E1={E_ac_i1}, E2={E_ac_i2}: Delta_eff={Delta_eff/1e6:.3f} MHz '
+              f'(bright_gap={diag["bright_gap"]/1e6:.3f}, purity={diag["gate_purity"]:.2f}, '
+              f'recovered={diag["leak_recovered"]:.2f})')
+        shiftout[row, col] = Delta_eff
+        eig_dict['{:.1f}_{:.1f}'.format(E_ac_i1, E_ac_i2)] = diag['gate_vec']
+        eig_shift_dict['{:.1f}_{:.1f}'.format(E_ac_i1, E_ac_i2)] = diag['leak_vec']
+        if diag['gate_purity'] < 0.5 or diag['leak_recovered'] < 0.9:
+            print(f'  WARN E1={E_ac_i1}: single-line picture breaking down '
+                  f'(purity={diag["gate_purity"]:.2f}, recovered={diag["leak_recovered"]:.2f}, '
+                  f'branches={diag["n_leak_branches"]})')
         #     base_frequency = energy[3]
         #     shiftout[col] = energy[3]-energy[2]
         #     # shiftout = energy[3]-energy[2]

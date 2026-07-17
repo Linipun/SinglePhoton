@@ -428,8 +428,11 @@ class SinglePhotonSim2AC(SinglePhotonSim):
 
         for m2_idx, m2 in enumerate(self.ms2):
             for n2_idx, n2 in enumerate(self.ms2):
-                block1 = np.zeros((self.comp_atomic_states_num*self.ms2_num,
-                                   self.comp_atomic_states_num*self.ms2_num), dtype=complex)
+                # field-1 Floquet block for a fixed field-2 photon index (m2,n2):
+                # size is comp * ms_num (field-1 photon blocks), NOT ms2_num. Using ms2_num
+                # only worked because len(ms1)==len(ms2) in existing runs; it crashed otherwise.
+                block1 = np.zeros((self.comp_atomic_states_num*self.ms_num,
+                                   self.comp_atomic_states_num*self.ms_num), dtype=complex)
                 if m2 == n2:
                     # print(m2,n2,m2*w_ac2)
                     block1 += np.eye(self.comp_atomic_states_num*self.ms_num) * m2 * w_ac2
