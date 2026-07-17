@@ -84,7 +84,7 @@ if __name__ == "__main__":
     j_2 = 1/2  # float(arg[14])
     mj_2 = 1/2  # float(arg[15])
     detuning_mhz = int(arg[2])
-    detuning = detuning_mhz*-1e6  # float(arg[0])
+    detuning = detuning_mhz*1e6  # float(arg[0])
 
     # Calculate first laser frequency accounting for Zeeman shift and transition frequency
     Zeeman_shift_ryd = cs.getZeemanEnergyShift(l=l_1, j=j_1, mj=mj_1, magneticFieldBz=Bz / 10000, s=0.5) / (
@@ -122,22 +122,22 @@ if __name__ == "__main__":
 
     # ########### property of E polarizability  ###############
     # Transition parameters
-    n_1 = n_r  # int(arg[8])
-    l_1 = l_r  # int(arg[9])
-    j_1 = j_r  # float(arg[10])
-    mj_1 = mj_r  # float(arg[11])
+    n2_1 = n_r  # int(arg[8])
+    l2_1 = l_r  # int(arg[9])
+    j2_1 = j_r  # float(arg[10])
+    mj2_1 = mj_r  # float(arg[11])
 
-    n_2 = n_r-1  # int(arg[12])
-    l_2 = 2  # int(arg[13])
-    j_2 = 5/2  # float(arg[14])
-    mj_2 = mj_r  # float(arg[15])
+    n2_2 = n_r-1  # int(arg[12])
+    l2_2 = 2  # int(arg[13])
+    j2_2 = 5/2  # float(arg[14])
+    mj2_2 = mj_r  # float(arg[15])
     detuning2 = 0 # float(arg[1])
 
     # Calculate laser frequency accounting for Zeeman shift and transition frequency
-    Zeeman_shift_ryd = cs.getZeemanEnergyShift(l=l_1, j=j_1, mj=mj_1, magneticFieldBz=Bz / 10000, s=0.5) / (
+    Zeeman_shift_ryd = cs.getZeemanEnergyShift(l=l2_1, j=j2_1, mj=mj2_1, magneticFieldBz=Bz / 10000, s=0.5) / (
             hbar * 2 * np.pi)
-    fine_frequency = cs.getTransitionFrequency(n1=n_1, l1=l_1, j1=j_1, n2=n_2, l2=l_2, j2=j_2, s=0.5)
-    Zeeman_shift = cs.getZeemanEnergyShift(l=l_2, j=j_2, mj=mj_2, magneticFieldBz=Bz / 10000, s=0.5) / (
+    fine_frequency = cs.getTransitionFrequency(n1=n2_1, l1=l2_1, j1=j2_1, n2=n2_2, l2=l2_2, j2=j2_2, s=0.5)
+    Zeeman_shift = cs.getZeemanEnergyShift(l=l2_2, j=j2_2, mj=mj2_2, magneticFieldBz=Bz / 10000, s=0.5) / (
             hbar * 2 * np.pi)
     w_ac_r2 = fine_frequency + Zeeman_shift - Zeeman_shift_ryd
     w_ac_2 = w_ac_r2 + detuning2
@@ -175,9 +175,9 @@ if __name__ == "__main__":
     # else:
     #     raise ValueError(f'v_ac2 is neither 1 or 2 -> {v_ac2}')
     E_ac_is1 = np.linspace(0, 200, 101)
-    E_ac_is2 = np.linspace(0, 50, 21)
-    shiftout = np.zeros((101, 21))
-    alpha = np.zeros((101,21))
+    # E_ac_is2 = np.linspace(0, 50, 21)
+    shiftout = np.zeros((101))
+    alpha = np.zeros((101))
     # ########### property of E2 ###############
 
 
@@ -281,6 +281,7 @@ if __name__ == "__main__":
     # for row, E_ac_i1 in enumerate(E_ac_is):
     eig_dict = {}
     eig_shift_dict = {}
+    main_output_scan = {}        # dict-of-lists: one list per key over the E_ac_1 scan
     bare_gate = pure_r_eig       # FIXED bare references (gate mj=3/2, leak mj=1/2), built once above;
     bare_leak = pure_shift_eig   # never re-assigned -> no drift, no branch-hopping at avoided crossings
     E_ac_i2 = 0
@@ -295,9 +296,12 @@ if __name__ == "__main__":
         print(f'E1={E_ac_i1}, E2={E_ac_i2}: Delta_eff={Delta_eff/1e6:.3f} MHz '
               f'(bright_gap={diag["bright_gap"]/1e6:.3f}, purity={diag["gate_purity"]:.2f}, '
               f'recovered={diag["leak_recovered"]:.2f})')
-        shiftout[row, col] = Delta_eff
+        shiftout[row] = Delta_eff
         eig_dict['{:.1f}_{:.1f}'.format(E_ac_i1, E_ac_i2)] = diag['gate_vec']
         eig_shift_dict['{:.1f}_{:.1f}'.format(E_ac_i1, E_ac_i2)] = diag['leak_vec']
+        for _k, _v in dict(E_ac_1=float(E_ac_i1), E_ac_2=float(E_ac_i2),
+                           E_gate=float(E_gate), Delta_eff=float(Delta_eff), **diag).items():
+            main_output_scan.setdefault(_k, []).append(_v)
         if diag['gate_purity'] < 0.5 or diag['leak_recovered'] < 0.9:
             print(f'  WARN E1={E_ac_i1}: single-line picture breaking down '
                   f'(purity={diag["gate_purity"]:.2f}, recovered={diag["leak_recovered"]:.2f}, '
@@ -369,38 +373,44 @@ if __name__ == "__main__":
     # fig2.tight_layout()
     # fig2.savefig(f"{folder}/result.pdf", dpi=300)
 
-    fig2, ax2 = plt.subplots(figsize=(5, 8))
-    x_step = 6  # show every 10th tick on x-axis
-    y_step = 6  # show every 10th tick on y-axis
-
-    # First heatmap (Shiftout)
-    im0 = ax2.imshow(
-        shiftout / 1e6,
-        aspect="auto",
-        origin="upper",
-        cmap="Greens",
-        vmin=-2000, vmax=2000
-    )
-    cbar0 = fig2.colorbar(im0, ax=ax2)
-    ax2.set_title("Shiftout [MHz]")
-    ax2.set_xlabel(r"$E_{pol}$ (V/m)")
-    ax2.set_ylabel(r"$E_{shift}$ (V/m)")
-    ax2.invert_yaxis()  # so low field is at bottom
-
-    # place ticks at cell centers: index + 0.5
-    nx0, ny0 = len(E_ac_is2), len(E_ac_is1)
-    xi0 = np.arange(0, nx0, x_step)
-    yi0 = np.arange(0, ny0, y_step)
-    ax2.set_xticks(xi0 + 0.5)
-    ax2.set_yticks(yi0 + 0.5)
-    ax2.set_xticklabels(np.round(E_ac_is2[xi0]).astype(int), rotation=0)
-    ax2.set_yticklabels(np.round(E_ac_is1[yi0]).astype(int), rotation=0)
-    fig2.tight_layout()
-    fig2.savefig(f"{folder}/result.pdf", dpi=300)
+    # fig2, ax2 = plt.subplots(figsize=(5, 8))
+    # x_step = 6  # show every 10th tick on x-axis
+    # y_step = 6  # show every 10th tick on y-axis
+    #
+    # # First heatmap (Shiftout)
+    # im0 = ax2.imshow(
+    #     shiftout / 1e6,
+    #     aspect="auto",
+    #     origin="upper",
+    #     cmap="Greens",
+    #     vmin=-2000, vmax=2000
+    # )
+    # cbar0 = fig2.colorbar(im0, ax=ax2)
+    # ax2.set_title("Shiftout [MHz]")
+    # ax2.set_xlabel(r"$E_{pol}$ (V/m)")
+    # ax2.set_ylabel(r"$E_{shift}$ (V/m)")
+    # ax2.invert_yaxis()  # so low field is at bottom
+    #
+    # # place ticks at cell centers: index + 0.5
+    # nx0, ny0 = len(E_ac_is2), len(E_ac_is1)
+    # xi0 = np.arange(0, nx0, x_step)
+    # yi0 = np.arange(0, ny0, y_step)
+    # ax2.set_xticks(xi0 + 0.5)
+    # ax2.set_yticks(yi0 + 0.5)
+    # ax2.set_xticklabels(np.round(E_ac_is2[xi0]).astype(int), rotation=0)
+    # ax2.set_yticklabels(np.round(E_ac_is1[yi0]).astype(int), rotation=0)
+    # fig2.tight_layout()
+    # fig2.savefig(f"{folder}/result.pdf", dpi=300)
 
 
     with open(f"{folder}/result.pkl", "wb") as f:
         pickle.dump({'mj3/2':eig_dict,'mj1/2':eig_shift_dict}, f)
+
+    # full main() output as one dict-of-lists over the E_ac_1 scan; keys:
+    # E_ac_1, E_ac_2, E_gate, Delta_eff, gate_purity, leak_recovered, n_leak_branches,
+    # bright_gap, gate_vec, leak_vec  (each maps to a length-len(E_ac_is1) list)
+    with open(f"{folder}/main_scan.pkl", "wb") as f:
+        pickle.dump({'scan': main_output_scan, 'settings': setting_dict}, f)
 
     # print('bad')
     # with PdfPages('results/DC_fit.pdf') as pdf:
