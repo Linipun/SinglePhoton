@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     # ### atomic property #########
     # Rydberg state
-    n_r = 60  # int(arg[0]) #
+    n_r = int(arg[0]) #
     l_r = 1  # int(arg[1])
     j_r = 3/2  # float(arg[2])
     mj_r = 3/2  # float(arg[3])
@@ -65,8 +65,8 @@ if __name__ == "__main__":
     Bz = 10  # float(arg[4])  # G
 
     # Nearby Rydberg state
-    energy_space = 100  # float(arg[1])  # GHz
-    dl = 2  # int(arg[2])
+    energy_space = float(arg[1])  # GHz
+    dl = 2 # int(arg[2])
     atomic_states = find_FS_state(n_r, l_r, j_r, energy_space, dl, folder)
     # ### atomic property #########
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     l_2 = 0  # int(arg[13])
     j_2 = 1/2  # float(arg[14])
     mj_2 = 1/2  # float(arg[15])
-    detuning_mhz = int(arg[0])
+    detuning_mhz = int(arg[2])
     detuning = detuning_mhz*-1e6  # float(arg[0])
 
     # Calculate first laser frequency accounting for Zeeman shift and transition frequency
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     # delta_ms=6 (+-6 sidebands): the near-resonant strong drive pulls in multi-photon
     # processes, so +-2 is badly non-converged above ~50 V/m (gap sign-flips; a leakage
     # resonance near ~100 V/m is missed). Delta_eff at 200 V/m converges only by +-5..6.
-    delta_ms = 6  # int(arg[3])
+    delta_ms = int(arg[3])
     ms1 = list(range(-delta_ms, delta_ms + 1))
 
     # Field strength scan parameters
